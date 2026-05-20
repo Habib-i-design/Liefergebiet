@@ -53,13 +53,10 @@ def get_isochrones(lon, lat, range_min, intervals):
 
 def geojson_to_kml(geojson, address, zonen):
     features = geojson.get("features", [])
-    # ORS gibt Polygone von klein nach groß zurück
-    # Wir sortieren aufsteigend nach value (Sekunden)
     features_sorted = sorted(features, key=lambda f: f["properties"]["value"])
-
     placemarks = ""
     for i, f in enumerate(features_sorted):
-        zone = zonen[i] if i < len(zonen) else {"name": f"{i+1}", "mbw": "-", "dfee": "-", "zeit": "-"}
+        zone = zonen[i] if i < len(zonen) else {"name": f"{i+1}", "mbw": "-", "dfee": "-", "zeit": "-", "minuten": "-"}
         coords = " ".join(
             f"{c[0]},{c[1]},0"
             for c in f["geometry"]["coordinates"][0]
@@ -82,7 +79,6 @@ def geojson_to_kml(geojson, address, zonen):
       <coordinates>{coords}</coordinates>
     </LinearRing></outerBoundaryIs></Polygon>
   </Placemark>"""
-
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
 <Document>
@@ -95,7 +91,7 @@ if st.button("KML generieren") and address:
     with st.spinner("Generiere Liefergebiet..."):
         try:
             ist_gross = "DeZentral" in groesse
-	    range_min = 12 if ist_gross else 9
+            range_min = 12 if ist_gross else 9
             intervals = 3
             zonen = ZONEN["gross"] if ist_gross else ZONEN["klein"]
 
@@ -113,7 +109,6 @@ if st.button("KML generieren") and address:
                 mime="application/vnd.google-earth.kml+xml"
             )
 
-            # Vorschau der Zonen
             st.subheader("Zonen Übersicht")
             for z in zonen:
                 st.write(f"**{z['name']} ({z['minuten']} Min)** – MBW: {z['mbw']} | Fee: {z['dfee']} | Zeit: {z['zeit']}")
