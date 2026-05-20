@@ -69,7 +69,7 @@ def geojson_to_kml(geojson, address, zonen):
         )
         placemarks += f"""
   <Placemark>
-    <name>{zone['name']} – {zone['minuten']} Min</name>
+    <name>{zone['name']} | MBW: {zone['mbw']} | Delivery Fee: {zone['dfee']} | Lieferzeit: {zone['zeit']}</name>
     <description>{beschreibung}</description>
     <Style>
       <LineStyle><color>ff0066ff</color><width>2</width></LineStyle>
