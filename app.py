@@ -4,7 +4,7 @@ import folium
 from streamlit_folium import st_folium
 
 st.set_page_config(page_title="Liefergebiet Generator", page_icon="🗺️")
-st.title("🗺️ Liefergebiet Generator :)")
+st.title("🗺️ Liefergebiet Generator 🙂")
 
 address = st.text_input("Adresse", placeholder="z.B. Hauptstraße 1, Berlin")
 groesse = st.radio("Stadtgröße", ["DeZentral (12 min / 3 Zonen)", "Zentral (9 min / 3 Zonen)"])
@@ -125,7 +125,6 @@ def save_to_asana(address, kml, zonen):
     )
     return task_id
 
-# Session state initialisieren
 if "result" not in st.session_state:
     st.session_state.result = None
 
@@ -161,11 +160,10 @@ if st.button("KML generieren") and address:
         except Exception as e:
             st.error(f"Fehler: {e}")
 
-# Ergebnis anzeigen
 if st.session_state.result:
     r = st.session_state.result
 
-    st.success(f"Adresse gefunden: {r['display']}")
+    st.success(f"Adresse gefuuuuunden🙋‍♂️: {r['display']}")
 
     if r.get("task_id"):
         st.info(f"✅ In Asana gespeichert: https://app.asana.com/0/{ASANA_PROJEKT_ID}/{r['task_id']}")
