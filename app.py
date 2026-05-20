@@ -1,11 +1,11 @@
-import streamlit as st
+fimport streamlit as st
 import requests
 
 st.set_page_config(page_title="Liefergebiet Generator", page_icon="🗺️")
 st.title("🗺️ Liefergebiet Generator")
 
 address = st.text_input("Adresse", placeholder="z.B. Hauptstraße 1, Berlin")
-groesse = st.radio("Stadtgröße", ["Großstadt (12 min / 4 Zonen)", "Kleinstadt (9 min / 3 Zonen)"])
+groesse = st.radio("Stadtgröße", ["DeZentral (12 min / 3 Zonen)", "Zentral (9 min / 3 Zonen)"])
 
 ZONEN = {
     "gross": [
@@ -94,9 +94,9 @@ def geojson_to_kml(geojson, address, zonen):
 if st.button("KML generieren") and address:
     with st.spinner("Generiere Liefergebiet..."):
         try:
-            ist_gross = "Großstadt" in groesse
-            range_min = 12 if ist_gross else 9
-            intervals = 3  # immer 3 Polygone
+            ist_gross = "DeZentral" in groesse
+	    range_min = 12 if ist_gross else 9
+            intervals = 3
             zonen = ZONEN["gross"] if ist_gross else ZONEN["klein"]
 
             lon, lat, display = geocode(address)
