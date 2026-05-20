@@ -89,6 +89,10 @@ def geojson_to_kml(geojson, address, zonen):
 </Document>
 </kml>"""
 
+# Session state initialisieren
+if "result" not in st.session_state:
+    st.session_state.result = None
+
 if st.button("KML generieren") and address:
     with st.spinner("Generiere Liefergebiet..."):
         try:
@@ -98,38 +102,53 @@ if st.button("KML generieren") and address:
             zonen = ZONEN["gross"] if ist_gross else ZONEN["klein"]
 
             lon, lat, display = geocode(address)
-            st.success(f"Adresse gefunden: {display}")
-
             geojson = get_isochrones(lon, lat, range_min, intervals)
             kml = geojson_to_kml(geojson, address, zonen)
-
             filename = address.replace(" ", "_")[:40] + ".kml"
-            st.download_button(
-                label="⬇️ KML herunterladen",
-                data=kml,
-                file_name=filename,
-                mime="application/vnd.google-earth.kml+xml"
-            )
 
-            st.subheader("Zonen Übersicht")
-            for z in zonen:
-                st.write(f"**{z['name']} ({z['minuten']} Min)** – MBW: {z['mbw']} | Fee: {z['dfee']} | Zeit: {z['zeit']}")
-
-            st.subheader("Kartenvorschau")
-            m = folium.Map(location=[lat, lon], zoom_start=12)
-            farben = ["red", "orange", "beige"]
-            features_sorted = sorted(geojson.get("features", []), key=lambda f: f["properties"]["value"])
-            for i, f in enumerate(features_sorted):
-                zone = zonen[i] if i < len(zonen) else {}
-                folium.GeoJson(
-                    f,
-                    style_function=lambda x, c=farben[i % len(farben)]: {
-                        "fillColor": c, "color": "red", "weight": 2, "fillOpacity": 0.3
-                    },
-                    tooltip=f"{zone.get('name','')} | MBW: {zone.get('mbw','')} | Fee: {zone.get('dfee','')} | {zone.get('zeit','')}"
-                ).add_to(m)
-            folium.Marker([lat, lon], tooltip=address).add_to(m)
-            st_folium(m, width=700, height=450)
+            # Ergebnis in session_state speichern
+            st.session_state.result = {
+                "display": display,
+                "kml": kml,
+                "filename": filename,
+                "zonen": zonen,
+                "geojson": geojson,
+                "lat": lat,
+                "lon": lon,
+                "address": address
+            }
 
         except Exception as e:
             st.error(f"Fehler: {e}")
+
+# Ergebnis anzeigen (bleibt auch nach Button-Klick sichtbar)
+if st.session_state.result:
+    r = st.session_state.result
+    st.success(f"Adresse gefunden: {r['display']}")
+
+    st.download_button(
+        label="⬇️ KML herunterladen",
+        data=r["kml"],
+        file_name=r["filename"],
+        mime="application/vnd.google-earth.kml+xml"
+    )
+
+    st.subheader("Zonen Übersicht")
+    for z in r["zonen"]:
+        st.write(f"**{z['name']} ({z['minuten']} Min)** – MBW: {z['mbw']} | Fee: {z['dfee']} | Zeit: {z['zeit']}")
+
+    st.subheader("Kartenvorschau")
+    m = folium.Map(location=[r["lat"], r["lon"]], zoom_start=12)
+    farben = ["red", "orange", "beige"]
+    features_sorted = sorted(r["geojson"].get("features", []), key=lambda f: f["properties"]["value"])
+    for i, f in enumerate(features_sorted):
+        zone = r["zonen"][i] if i < len(r["zonen"]) else {}
+        folium.GeoJson(
+            f,
+            style_function=lambda x, c=farben[i % len(farben)]: {
+                "fillColor": c, "color": "red", "weight": 2, "fillOpacity": 0.3
+            },
+            tooltip=f"{zone.get('name','')} | MBW: {zone.get('mbw','')} | Fee: {zone.get('dfee','')} | {zone.get('zeit','')}"
+        ).add_to(m)
+    folium.Marker([r["lat"], r["lon"]], tooltip=r["address"]).add_to(m)
+    st_folium(m, width=700, height=450)
