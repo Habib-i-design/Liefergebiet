@@ -107,7 +107,10 @@ def save_to_asana(address, kml, zonen):
                "notes": "\n".join([
                    f"{z['name']} ({z['minuten']} Min) | MBW: {z['mbw']} | Fee: {z['dfee']} | Zeit: {z['zeit']}"
                    for z in zonen
-               ])
+               ]),
+               "custom_fields": {
+                   "1209741946679941": "1209741951038590"
+               }
            }
        }
    )
