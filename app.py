@@ -1,5 +1,7 @@
 import streamlit as st
 import requests
+import folium
+from streamlit_folium import st_folium
 
 st.set_page_config(page_title="Liefergebiet Generator", page_icon="🗺️")
 st.title("🗺️ Liefergebiet Generator")
@@ -37,7 +39,7 @@ def get_isochrones(lon, lat, range_min, intervals):
     res = requests.post(
         "https://api.openrouteservice.org/v2/isochrones/driving-car",
         headers={
-            "Authorization": "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjA3ZDNlOTA2Mjk3ZTQ4ZTliMGQ0YzczMmQxYTUzMGI0IiwiaCI6Im11cm11cjY0In0=",
+            "Authorization": "DEIN_ORS_API_KEY",
             "Content-Type": "application/json"
         },
         json={
@@ -112,6 +114,22 @@ if st.button("KML generieren") and address:
             st.subheader("Zonen Übersicht")
             for z in zonen:
                 st.write(f"**{z['name']} ({z['minuten']} Min)** – MBW: {z['mbw']} | Fee: {z['dfee']} | Zeit: {z['zeit']}")
+
+            st.subheader("Kartenvorschau")
+            m = folium.Map(location=[lat, lon], zoom_start=12)
+            farben = ["red", "orange", "beige"]
+            features_sorted = sorted(geojson.get("features", []), key=lambda f: f["properties"]["value"])
+            for i, f in enumerate(features_sorted):
+                zone = zonen[i] if i < len(zonen) else {}
+                folium.GeoJson(
+                    f,
+                    style_function=lambda x, c=farben[i % len(farben)]: {
+                        "fillColor": c, "color": "red", "weight": 2, "fillOpacity": 0.3
+                    },
+                    tooltip=f"{zone.get('name','')} | MBW: {zone.get('mbw','')} | Fee: {zone.get('dfee','')} | {zone.get('zeit','')}"
+                ).add_to(m)
+            folium.Marker([lat, lon], tooltip=address).add_to(m)
+            st_folium(m, width=700, height=450)
 
         except Exception as e:
             st.error(f"Fehler: {e}")
