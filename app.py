@@ -4,7 +4,7 @@ import folium
 from streamlit_folium import st_folium
 
 st.set_page_config(page_title="Liefergebiet Generator", page_icon="🗺️")
-st.title("🗺️ Liefergebiet Generator 🙂")
+st.title("🗺️ Liefergebiet Generator")
 
 address = st.text_input("Adresse", placeholder="z.B. Hauptstraße 1, Berlin")
 groesse = st.radio("Stadtgröße", ["DeZentral (12 min / 3 Zonen)", "Zentral (9 min / 3 Zonen)"])
@@ -51,7 +51,8 @@ def get_isochrones(lon, lat, range_min, intervals):
             "range": [range_sec],
             "interval": interval_sec,
             "range_type": "time",
-            "smoothing": 0.25
+            "smoothing": 0.25,
+            "attributes": ["total_pop"]
         }
     )
     res.raise_for_status()
@@ -63,6 +64,8 @@ def geojson_to_kml(geojson, address, zonen):
     placemarks = ""
     for i, f in enumerate(features_sorted):
         zone = zonen[i] if i < len(zonen) else {"name": f"{i+1}", "mbw": "-", "dfee": "-", "zeit": "-", "minuten": "-"}
+        pop = f["properties"].get("total_pop", 0)
+        pop_str = f"{int(pop):,}".replace(",", ".")
         coords = " ".join(
             f"{c[0]},{c[1]},0"
             for c in f["geometry"]["coordinates"][0]
@@ -71,7 +74,8 @@ def geojson_to_kml(geojson, address, zonen):
             f"Zone: {zone['name']} | "
             f"MBW: {zone['mbw']} | "
             f"Delivery Fee: {zone['dfee']} | "
-            f"Lieferzeit: {zone['zeit']}"
+            f"Lieferzeit: {zone['zeit']} | "
+            f"Einwohner: {pop_str}"
         )
         placemarks += f"""
   <Placemark>
@@ -125,6 +129,7 @@ def save_to_asana(address, kml, zonen):
     )
     return task_id
 
+# Session state initialisieren
 if "result" not in st.session_state:
     st.session_state.result = None
 
@@ -138,18 +143,28 @@ if st.button("KML generieren") and address:
 
             lon, lat, display = geocode(address)
             geojson = get_isochrones(lon, lat, range_min, intervals)
+            features_sorted = sorted(geojson.get("features", []), key=lambda f: f["properties"]["value"])
+
+            # Population zu Zonen hinzufügen
+            zonen_mit_pop = []
+            for i, z in enumerate(zonen):
+                pop = 0
+                if i < len(features_sorted):
+                    pop = int(features_sorted[i]["properties"].get("total_pop", 0))
+                zonen_mit_pop.append({**z, "pop": pop})
+
             kml = geojson_to_kml(geojson, address, zonen)
             filename = address.replace(" ", "_")[:40] + ".kml"
 
             task_id = None
             if asana_speichern:
-                task_id = save_to_asana(address, kml, zonen)
+                task_id = save_to_asana(address, kml, zonen_mit_pop)
 
             st.session_state.result = {
                 "display": display,
                 "kml": kml,
                 "filename": filename,
-                "zonen": zonen,
+                "zonen": zonen_mit_pop,
                 "geojson": geojson,
                 "lat": lat,
                 "lon": lon,
@@ -160,10 +175,11 @@ if st.button("KML generieren") and address:
         except Exception as e:
             st.error(f"Fehler: {e}")
 
+# Ergebnis anzeigen
 if st.session_state.result:
     r = st.session_state.result
 
-    st.success(f"Adresse gefuuuuunden🙋‍♂️: {r['display']}")
+    st.success(f"Adresse gefunden: {r['display']}")
 
     if r.get("task_id"):
         st.info(f"✅ In Asana gespeichert: https://app.asana.com/0/{ASANA_PROJEKT_ID}/{r['task_id']}")
@@ -177,7 +193,8 @@ if st.session_state.result:
 
     st.subheader("Zonen Übersicht")
     for z in r["zonen"]:
-        st.write(f"**{z['name']} ({z['minuten']} Min)** – MBW: {z['mbw']} | Fee: {z['dfee']} | Zeit: {z['zeit']}")
+        pop_str = f"{z['pop']:,}".replace(",", ".")
+        st.write(f"**{z['name']} ({z['minuten']} Min)** – MBW: {z['mbw']} | Fee: {z['dfee']} | Zeit: {z['zeit']} | 👥 {pop_str} Einwohner")
 
     st.subheader("Kartenvorschau")
     m = folium.Map(location=[r["lat"], r["lon"]], zoom_start=12)
@@ -185,12 +202,14 @@ if st.session_state.result:
     features_sorted = sorted(r["geojson"].get("features", []), key=lambda f: f["properties"]["value"])
     for i, f in enumerate(features_sorted):
         zone = r["zonen"][i] if i < len(r["zonen"]) else {}
+        pop = zone.get("pop", 0)
+        pop_str = f"{pop:,}".replace(",", ".")
         folium.GeoJson(
             f,
             style_function=lambda x, c=farben[i % len(farben)]: {
                 "fillColor": c, "color": "red", "weight": 2, "fillOpacity": 0.3
             },
-            tooltip=f"{zone.get('name','')} | MBW: {zone.get('mbw','')} | Fee: {zone.get('dfee','')} | {zone.get('zeit','')}"
+            tooltip=f"{zone.get('name','')} | MBW: {zone.get('mbw','')} | Fee: {zone.get('dfee','')} | {zone.get('zeit','')} | 👥 {pop_str}"
         ).add_to(m)
     folium.Marker([r["lat"], r["lon"]], tooltip=r["address"]).add_to(m)
     st_folium(m, width=700, height=450)
