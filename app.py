@@ -315,10 +315,10 @@ def verarbeite_adresse(address, store_name, ist_gross):
        "task_id": None
    }
 
-# --- UI ---
+
 modus = st.radio("Modus", ["Einzelne Adresse", "Mehrere Adressen"])
 groesse = st.radio("Stadtgröße", ["DeZentral (12 min / 3 Zonen)", "Zentral (9 min / 3 Zonen)"])
-asana_speichern = st.checkbox("📋 Aufgabe & KML in Asana speichern")
+
 
 eintraege = []
 if modus == "Einzelne Adresse":
@@ -343,11 +343,13 @@ else:
            loc = st.selectbox("Location (Asana)", list(LOCATION_OPTIONS.keys()), key=f"loc_{i}")
        eintraege.append({"address": a, "store_name": sn, "location": loc})
 
-# Session state
+
 if "results" not in st.session_state:
    st.session_state.results = []
 
 gefuellt = [e for e in eintraege if e["address"].strip() and e["store_name"].strip()]
+
+asana_speichern = st.checkbox("📋 Aufgabe & KML in Asana speichern")
 
 if st.button("KML generieren") and gefuellt:
    st.session_state.results = []
