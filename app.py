@@ -365,7 +365,7 @@ if st.button("KML generieren") and gefuellt:
                st.session_state.results.append(result)
            except Exception as ex:
                st.error(f"Fehler bei '{e['store_name']}': {ex}")
-asana_speichern = st.checkbox("📋 Aufgabe & KML in Asana speichern")
+
 
 # Ergebnisse anzeigen
 for r in st.session_state.results:
@@ -404,3 +404,4 @@ for r in st.session_state.results:
        ).add_to(m)
    folium.Marker([r["lat"], r["lon"]], tooltip=r["store_name"]).add_to(m)
    st_folium(m, width=700, height=450, key=f"map_{r['store_name']}")
+asana_speichern = st.checkbox("📋 Aufgabe & KML in Asana speichern")
