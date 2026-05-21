@@ -349,7 +349,6 @@ if "results" not in st.session_state:
 
 gefuellt = [e for e in eintraege if e["address"].strip() and e["store_name"].strip()]
 
-asana_speichern = st.checkbox("📋 Aufgabe & KML in Asana speichern")
 
 if st.button("KML generieren") and gefuellt:
    st.session_state.results = []
@@ -366,6 +365,7 @@ if st.button("KML generieren") and gefuellt:
                st.session_state.results.append(result)
            except Exception as ex:
                st.error(f"Fehler bei '{e['store_name']}': {ex}")
+asana_speichern = st.checkbox("📋 Aufgabe & KML in Asana speichern")
 
 # Ergebnisse anzeigen
 for r in st.session_state.results:
