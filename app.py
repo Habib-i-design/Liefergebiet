@@ -216,6 +216,8 @@ def geojson_to_kml(geojson, store_name, zonen):
         # Zonen auch umkehren
         zone_index = len(zonen) - 1 - i
         zone = zonen[zone_index] if zone_index >= 0 else {"name": f"{i+1}", "mbw": "-", "dfee": "-", "zeit": "-", "minuten": "-"}
+        farben = ["ffff0000", "ff00ff00", "ff0000ff"]  # Blau, Grün, Rot (P3, P2, P1)
+        farbe = farben[i % len(farben)]
         pop = f["properties"].get("total_pop", 0)
         pop_str = f"{int(pop):,}".replace(",", ".")
         coords = " ".join(
@@ -233,9 +235,9 @@ def geojson_to_kml(geojson, store_name, zonen):
   <Placemark>
     <name>{zone['name']} | MBW: {zone['mbw']} | Delivery Fee: {zone['dfee']} | Lieferzeit: {zone['zeit']}</name>
     <description>{beschreibung}</description>
-    <Style>
-      <LineStyle><color>ff0066ff</color><width>2</width></LineStyle>
-      <PolyStyle><color>330066ff</color></PolyStyle>
+     <Style>
+      <LineStyle><color>{farbe}</color><width>2</width></LineStyle>
+      <PolyStyle><color>55{farbe[2:]}</color></PolyStyle>
     </Style>
     <Polygon><outerBoundaryIs><LinearRing>
       <coordinates>{coords}</coordinates>
