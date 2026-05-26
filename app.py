@@ -209,40 +209,59 @@ def get_isochrones(lon, lat, range_min, intervals):
    return res.json()
 
 def geojson_to_kml(geojson, store_name, zonen):
-   features = geojson.get("features", [])
-   features_sorted = sorted(features, key=lambda f: f["properties"]["value"])
-   placemarks = ""
-   for i, f in enumerate(features_sorted):
-       zone = zonen[i] if i < len(zonen) else {"name": f"{i+1}", "mbw": "-", "dfee": "-", "zeit": "-", "minuten": "-"}
-       pop = f["properties"].get("total_pop", 0)
-       pop_str = f"{int(pop):,}".replace(",", ".")
-       coords = " ".join(
-           f"{c[0]},{c[1]},0"
-           for c in f["geometry"]["coordinates"][0]
-       )
-       beschreibung = (
-           f"Zone: {zone['name']} | "
-           f"MBW: {zone['mbw']} | "
-           f"Delivery Fee: {zone['dfee']} | "
-           f"Lieferzeit: {zone['zeit']} | "
-           f"Einwohner: {pop_str}"
-       )
-       placemarks += f"""
- <Placemark>
-   <name>{zone['name']} | MBW: {zone['mbw']} | Delivery Fee: {zone['dfee']} | Lieferzeit: {zone['zeit']}</name>
-   <description>{beschreibung}</description>
-   <Style>
-     <LineStyle><color>ff0066ff</color><width>2</width></LineStyle>
-     <PolyStyle><color>330066ff</color></PolyStyle>
-   </Style>
-   <Polygon><outerBoundaryIs><LinearRing>
-     <coordinates>{coords}</coordinates>
-   </LinearRing></outerBoundaryIs></Polygon>
- </Placemark>"""
-   return f"""<?xml version="1.0" encoding="UTF-8"?>
+    features = geojson.get("features", [])
+    features_sorted = sorted(features, key=lambda f: f["properties"]["value"])
+    placemarks = ""
+
+    for i, f in enumerate(features_sorted):
+        zone = zonen[i] if i < len(zonen) else {"name": f"{i+1}", "mbw": "-", "dfee": "-", "zeit": "-", "minuten": "-"}
+        pop = f["properties"].get("total_pop", 0)
+        pop_str = f"{int(pop):,}".replace(",", ".")
+
+        outer_coords = " ".join(
+            f"{c[0]},{c[1]},0"
+            for c in f["geometry"]["coordinates"][0]
+        )
+
+        beschreibung = (
+            f"Zone: {zone['name']} | "
+            f"MBW: {zone['mbw']} | "
+            f"Delivery Fee: {zone['dfee']} | "
+            f"Lieferzeit: {zone['zeit']} | "
+            f"Einwohner: {pop_str}"
+        )
+
+        # Inneres Polygon als Loch (donut) – außer beim kleinsten
+        inner_boundary = ""
+        if i > 0:
+            inner_coords = " ".join(
+                f"{c[0]},{c[1]},0"
+                for c in features_sorted[i-1]["geometry"]["coordinates"][0]
+            )
+            inner_boundary = f"""
+      <innerBoundaryIs><LinearRing>
+        <coordinates>{inner_coords}</coordinates>
+      </LinearRing></innerBoundaryIs>"""
+
+        placemarks += f"""
+  <Placemark>
+    <name>{zone['name']} | MBW: {zone['mbw']} | Delivery Fee: {zone['dfee']} | Lieferzeit: {zone['zeit']}</name>
+    <description>{beschreibung}</description>
+    <Style>
+      <LineStyle><color>ff0066ff</color><width>2</width></LineStyle>
+      <PolyStyle><color>330066ff</color></PolyStyle>
+    </Style>
+    <Polygon>
+      <outerBoundaryIs><LinearRing>
+        <coordinates>{outer_coords}</coordinates>
+      </LinearRing></outerBoundaryIs>{inner_boundary}
+    </Polygon>
+  </Placemark>"""
+
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
 <Document>
- <name>Liefergebiet: {store_name}</name>
+  <name>Liefergebiet: {store_name}</name>
 {placemarks}
 </Document>
 </kml>"""
