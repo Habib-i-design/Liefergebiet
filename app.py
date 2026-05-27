@@ -209,48 +209,48 @@ def get_isochrones(lon, lat, range_min, intervals):
    return res.json()
 
 def geojson_to_kml(geojson, store_name, zonen):
-    features = geojson.get("features", [])
-    features_sorted = sorted(features, key=lambda f: f["properties"]["value"], reverse=True)
-    placemarks = ""
-    for i, f in enumerate(features_sorted):
-        # Zonen auch umkehren
-        zone_index = len(zonen) - 1 - i
-        zone = zonen[zone_index] if zone_index >= 0 else {"name": f"{i+1}", "mbw": "-", "dfee": "-", "zeit": "-", "minuten": "-"}
-        farben = ["ffff0000", "ff00ff00", "ff0000ff"]  # Blau, Grün, Rot (P3, P2, P1)
-        farbe = farben[i % len(farben)]
-        pop = f["properties"].get("total_pop", 0)
-        pop_str = f"{int(pop):,}".replace(",", ".")
-        coords = " ".join(
-            f"{c[0]},{c[1]},0"
-            for c in f["geometry"]["coordinates"][0]
-        )
-        beschreibung = (
-            f"Zone: {zone['name']} | "
-            f"MBW: {zone['mbw']} | "
-            f"Delivery Fee: {zone['dfee']} | "
-            f"Lieferzeit: {zone['zeit']} | "
-            f"Einwohner: {pop_str}"
-        )
-        placemarks += f"""
-  <Placemark>
-    <name>{zone['name']} | MBW: {zone['mbw']} | Delivery Fee: {zone['dfee']} | Lieferzeit: {zone['zeit']}</name>
-    <description>{beschreibung}</description>
-     <Style>
-      <LineStyle><color>{farbe}</color><width>2</width></LineStyle>
-      <PolyStyle><color>55{farbe[2:]}</color></PolyStyle>
-    </Style>
-    <Polygon><outerBoundaryIs><LinearRing>
-      <coordinates>{coords}</coordinates>
-    </LinearRing></outerBoundaryIs></Polygon>
-  </Placemark>"""
-    return f"""<?xml version="1.0" encoding="UTF-8"?>
+   features = geojson.get("features", [])
+   features_sorted = sorted(features, key=lambda f: f["properties"]["value"], reverse=True)
+   # KML Farben: Rot=ff0000ff, Grün=ff00ff00, Blau=ffff0000
+   kml_farben = ["ffff0000", "ff00ff00", "ff0000ff"]  # P3, P2, P1
+   placemarks = ""
+   for i, f in enumerate(features_sorted):
+       zone_index = len(zonen) - 1 - i
+       zone = zonen[zone_index] if zone_index >= 0 else {"name": f"{i+1}", "mbw": "-", "dfee": "-", "zeit": "-", "minuten": "-"}
+       pop = f["properties"].get("total_pop", 0)
+       pop_str = f"{int(pop):,}".replace(",", ".")
+       coords = " ".join(
+           f"{c[0]},{c[1]},0"
+           for c in f["geometry"]["coordinates"][0]
+       )
+       farbe = kml_farben[i % len(kml_farben)]
+       fill_farbe = "55" + farbe[2:]
+       beschreibung = (
+           f"Zone: {zone['name']} | "
+           f"MBW: {zone['mbw']} | "
+           f"Delivery Fee: {zone['dfee']} | "
+           f"Lieferzeit: {zone['zeit']} | "
+           f"Einwohner: {pop_str}"
+       )
+       placemarks += f"""
+ <Placemark>
+   <name>{zone['name']} | MBW: {zone['mbw']} | Delivery Fee: {zone['dfee']} | Lieferzeit: {zone['zeit']}</name>
+   <description>{beschreibung}</description>
+   <Style>
+     <LineStyle><color>{farbe}</color><width>2</width></LineStyle>
+     <PolyStyle><color>{fill_farbe}</color></PolyStyle>
+   </Style>
+   <Polygon><outerBoundaryIs><LinearRing>
+     <coordinates>{coords}</coordinates>
+   </LinearRing></outerBoundaryIs></Polygon>
+ </Placemark>"""
+   return f"""<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
 <Document>
-  <name>Liefergebiet: {store_name}</name>
+ <name>Liefergebiet: {store_name}</name>
 {placemarks}
 </Document>
 </kml>"""
-
 
 def save_to_asana(store_name, kml, zonen, location_gid):
    headers = {
@@ -320,10 +320,9 @@ def verarbeite_adresse(address, store_name, ist_gross):
        "task_id": None
    }
 
-
+# --- UI ---
 modus = st.radio("Modus", ["Einzelne Adresse", "Mehrere Adressen"])
 groesse = st.radio("Stadtgröße", ["DeZentral (12 min / 3 Zonen)", "Zentral (9 min / 3 Zonen)"])
-
 
 eintraege = []
 if modus == "Einzelne Adresse":
@@ -348,12 +347,9 @@ else:
            loc = st.selectbox("Location (Asana)", list(LOCATION_OPTIONS.keys()), key=f"loc_{i}")
        eintraege.append({"address": a, "store_name": sn, "location": loc})
 
-
-if "results" not in st.session_state:
-   st.session_state.results = []
-
 gefuellt = [e for e in eintraege if e["address"].strip() and e["store_name"].strip()]
 asana_speichern = st.checkbox("📋 Aufgabe & KML in Asana speichern")
+
 if st.button("KML generieren") and gefuellt:
    st.session_state.results = []
    ist_gross = "DeZentral" in groesse
@@ -370,42 +366,77 @@ if st.button("KML generieren") and gefuellt:
            except Exception as ex:
                st.error(f"Fehler bei '{e['store_name']}': {ex}")
 
-
+# Session state
+if "results" not in st.session_state:
+   st.session_state.results = []
 
 # Ergebnisse anzeigen
-for r in st.session_state.results:
-   st.divider()
-   st.subheader(f"📍 {r['store_name']}")
-   st.success(f"Gefunden: {r['display']}")
+if st.session_state.results:
 
-   if r.get("task_id"):
-       st.info(f"✅ In Asana gespeichert: https://app.asana.com/0/{ASANA_PROJEKT_ID}/{r['task_id']}")
+   # Gemeinsame Karte wenn mehrere Ergebnisse
+   if len(st.session_state.results) > 1:
+       st.subheader("🗺️ Alle Gebiete auf einer Karte")
+       first = st.session_state.results[0]
+       m = folium.Map(location=[first["lat"], first["lon"]], zoom_start=11)
+       farben_map = ["red", "orange", "beige"]
+       store_farben = ["blue", "green", "purple", "orange", "red", "pink"]
 
-   st.download_button(
-       label="⬇️ KML herunterladen",
-       data=r["kml"],
-       file_name=r["filename"],
-       mime="application/vnd.google-earth.kml+xml",
-       key=f"dl_{r['store_name']}"
-   )
+       for si, r in enumerate(st.session_state.results):
+           features_sorted = sorted(r["geojson"].get("features", []), key=lambda f: f["properties"]["value"], reverse=True)
+           for i, f in enumerate(features_sorted):
+               zone_index = len(r["zonen"]) - 1 - i
+               zone = r["zonen"][zone_index] if zone_index >= 0 else {}
+               pop_str = f"{zone.get('pop', 0):,}".replace(",", ".")
+               folium.GeoJson(
+                   f,
+                   style_function=lambda x, c=farben_map[i % len(farben_map)]: {
+                       "fillColor": c, "color": c, "weight": 2, "fillOpacity": 0.2
+                   },
+                   tooltip=f"{r['store_name']} | {zone.get('name','')} | MBW: {zone.get('mbw','')} | Fee: {zone.get('dfee','')} | {zone.get('zeit','')} | 👥 {pop_str}"
+               ).add_to(m)
+           folium.Marker(
+               [r["lat"], r["lon"]],
+               tooltip=r["store_name"],
+               icon=folium.Icon(color=store_farben[si % len(store_farben)])
+           ).add_to(m)
+       st_folium(m, width=700, height=500, key="map_all")
 
-   st.write("**Zonen Übersicht:**")
-   for z in r["zonen"]:
-       pop_str = f"{z['pop']:,}".replace(",", ".")
-       st.write(f"**{z['name']} ({z['minuten']} Min)** – MBW: {z['mbw']} | Fee: {z['dfee']} | Zeit: {z['zeit']} | 👥 {pop_str} Einwohner")
+   # Einzelne Ergebnisse
+   for r in st.session_state.results:
+       st.divider()
+       st.subheader(f"📍 {r['store_name']}")
+       st.success(f"Gefunden: {r['display']}")
 
-   m = folium.Map(location=[r["lat"], r["lon"]], zoom_start=12)
-   farben = ["red", "orange", "beige"]
-   features_sorted = sorted(r["geojson"].get("features", []), key=lambda f: f["properties"]["value"])
-   for i, f in enumerate(features_sorted):
-       zone = r["zonen"][i] if i < len(r["zonen"]) else {}
-       pop_str = f"{zone.get('pop', 0):,}".replace(",", ".")
-       folium.GeoJson(
-           f,
-           style_function=lambda x, c=farben[i % len(farben)]: {
-               "fillColor": c, "color": "red", "weight": 2, "fillOpacity": 0.3
-           },
-           tooltip=f"{zone.get('name','')} | MBW: {zone.get('mbw','')} | Fee: {zone.get('dfee','')} | {zone.get('zeit','')} | 👥 {pop_str}"
-       ).add_to(m)
-   folium.Marker([r["lat"], r["lon"]], tooltip=r["store_name"]).add_to(m)
-   st_folium(m, width=700, height=450, key=f"map_{r['store_name']}")
+       if r.get("task_id"):
+           st.info(f"✅ In Asana gespeichert: https://app.asana.com/0/{ASANA_PROJEKT_ID}/{r['task_id']}")
+
+       st.download_button(
+           label="⬇️ KML herunterladen",
+           data=r["kml"],
+           file_name=r["filename"],
+           mime="application/vnd.google-earth.kml+xml",
+           key=f"dl_{r['store_name']}"
+       )
+
+       st.write("**Zonen Übersicht:**")
+       for z in r["zonen"]:
+           pop_str = f"{z['pop']:,}".replace(",", ".")
+           st.write(f"**{z['name']} ({z['minuten']} Min)** – MBW: {z['mbw']} | Fee: {z['dfee']} | Zeit: {z['zeit']} | 👥 {pop_str} Einwohner")
+
+       if len(st.session_state.results) == 1:
+           m = folium.Map(location=[r["lat"], r["lon"]], zoom_start=12)
+           farben = ["red", "orange", "beige"]
+           features_sorted = sorted(r["geojson"].get("features", []), key=lambda f: f["properties"]["value"], reverse=True)
+           for i, f in enumerate(features_sorted):
+               zone_index = len(r["zonen"]) - 1 - i
+               zone = r["zonen"][zone_index] if zone_index >= 0 else {}
+               pop_str = f"{zone.get('pop', 0):,}".replace(",", ".")
+               folium.GeoJson(
+                   f,
+                   style_function=lambda x, c=farben[i % len(farben)]: {
+                       "fillColor": c, "color": "red", "weight": 2, "fillOpacity": 0.3
+                   },
+                   tooltip=f"{zone.get('name','')} | MBW: {zone.get('mbw','')} | Fee: {zone.get('dfee','')} | {zone.get('zeit','')} | 👥 {pop_str}"
+               ).add_to(m)
+           folium.Marker([r["lat"], r["lon"]], tooltip=r["store_name"]).add_to(m)
+           st_folium(m, width=700, height=450, key=f"map_{r['store_name']}")
