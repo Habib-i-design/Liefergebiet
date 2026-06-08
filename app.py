@@ -191,7 +191,7 @@ def get_isochrones(lon, lat, range_min, intervals):
    range_sec = range_min * 60
    interval_sec = (range_min / intervals) * 60
    res = requests.post(
-       "https://api.heigit.org/v2/isochrones/driving-car",
+       "https://api.heigit.org/openrouteservice/v2/isochrones/driving-car",
        headers={
            "Authorization": "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjA3ZDNlOTA2Mjk3ZTQ4ZTliMGQ0YzczMmQxYTUzMGI0IiwiaCI6Im11cm11cjY0In0=",
            "Content-Type": "application/json"
