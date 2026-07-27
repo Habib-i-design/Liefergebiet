@@ -205,8 +205,17 @@ def get_isochrones(lon, lat, range_min, intervals):
            "attributes": ["total_pop"]
        }
    )
-   res.raise_for_status()
-   return res.json()
+   # Show a clear error instead of a cryptic JSON parse crash
+   if res.status_code == 429:
+       raise Exception("ORS API Rate Limit erreicht – bitte kurz warten und erneut versuchen.")
+   if res.status_code == 401 or res.status_code == 403:
+       raise Exception("ORS API Key ungültig oder abgelaufen – bitte Key erneuern unter https://openrouteservice.org/dev/#/home")
+   if not res.ok:
+       raise Exception(f"ORS API Fehler {res.status_code}: {res.text[:200]}")
+   try:
+       return res.json()
+   except Exception:
+       raise Exception(f"ORS API hat kein gültiges JSON zurückgegeben (Status {res.status_code}). Antwort: {res.text[:200]}")
 
 def geojson_to_kml(geojson, store_name, zonen):
    features = geojson.get("features", [])
